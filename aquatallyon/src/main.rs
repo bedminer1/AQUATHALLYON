@@ -2,6 +2,7 @@ use teloxide::{prelude::*, utils::command::BotCommands};
 
 #[tokio::main]
 async fn main() {
+    dotenvy::dotenv().ok();
     pretty_env_logger::init();
     log::info!("Starting command bot...");
 
@@ -13,7 +14,7 @@ async fn main() {
 #[derive(BotCommands, Clone)]
 #[command(rename_rule = "lowercase", description = "These commands are supported:")]
 enum Command {
-    #[command(description = "display this text.")]
+    #[command(description = "more information on bot commands.")]
     Help,
     #[command(description = "handle a username.")]
     Username(String),
