@@ -1,0 +1,9 @@
+# The big one: Compiled artifacts
+/target/
+
+# Sensitive data: Your bot token
+.env
+
+# (Optional) OS-specific files
+.DS_Store
+Thumbs.db
