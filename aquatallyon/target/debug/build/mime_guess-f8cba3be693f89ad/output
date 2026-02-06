@@ -1,0 +1,1 @@
+cargo:rustc-env=MIME_TYPES_GENERATED_PATH=/Users/alex/Desktop/HOMEWORK/repos.nosync/AQUATALLYON/aquatallyon/target/debug/build/mime_guess-f8cba3be693f89ad/out/mime_types_generated.rs
