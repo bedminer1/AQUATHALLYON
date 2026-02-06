@@ -1,5 +1,0 @@
-/Users/alex/Desktop/HOMEWORK/repos.nosync/AQUA_ATTENDANCE/aquatallyon/target/debug/build/serde-daf26e5a57eca020/build_script_build-daf26e5a57eca020.d: /Users/alex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/build.rs
-
-/Users/alex/Desktop/HOMEWORK/repos.nosync/AQUA_ATTENDANCE/aquatallyon/target/debug/build/serde-daf26e5a57eca020/build_script_build-daf26e5a57eca020: /Users/alex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/build.rs
-
-/Users/alex/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/build.rs:
