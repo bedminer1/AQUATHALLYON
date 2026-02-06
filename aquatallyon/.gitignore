@@ -1,5 +1,5 @@
 # The big one: Compiled artifacts
-target/**
+target/
 
 # Sensitive data: Your bot token
 .env
