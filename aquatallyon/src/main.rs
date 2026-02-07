@@ -1,6 +1,6 @@
 use teloxide::{
     prelude::*, 
-    types::{ InlineKeyboardMarkup, MaybeInaccessibleMessage, Me},
+    types::{ InlineKeyboardMarkup },
 };
 
 mod types;
@@ -90,42 +90,32 @@ async fn send_menu(
 }
 async fn receive_btn_press(
     bot: Bot,
-    state: SharedState, // Removed mut: Arc handles cloning, RwLock handles mutability
+    state: SharedState, 
     q: CallbackQuery,
 ) -> ResponseResult<()> {
     let user_name = q.from.username.clone().unwrap_or_else(|| "unknown".into());
     let user_id = q.from.id.0;
 
-    // 1. SCOPED BLOCK: Update the state and generate new UI data
-    // This block ensures the WriteGuard is dropped before any .await
     let (report_text, keyboard) = {
         let mut week = state.write();
 
-        if let Some(data) = q.data.as_deref() {
-            if let Some(id_str) = data.strip_prefix("checkin_") {
-                if let Ok(id) = id_str.parse::<u8>() {
-                    if let Some(session) = week.get_session_mut(id) {
-                        // Toggle logic: Remove if present, add if not
-                        if let Some(pos) = session.attendees.iter().position(|u| u.telegram_id == user_id) {
-                            session.attendees.remove(pos);
-                        } else {
-                            session.attendees.push(User {
-                                telegram_id: user_id,
-                                alias: user_name,
-                            });
-                        }
-                    }
-                }
+        let session_id = q.data.as_deref()
+            .and_then(|data| data.strip_prefix("checkin_"))
+            .and_then(|id_str| id_str.parse::<u8>().ok());
+
+        if let Some(session) = session_id.and_then(|id| week.get_session_mut(id)) {
+            if let Some(pos) = session.attendees.iter().position(|u| u.telegram_id == user_id) {
+                session.attendees.remove(pos);
+            } else {
+                session.attendees.push(User { telegram_id: user_id, alias: user_name });
             }
         }
         
-        // Generate the new report and keyboard while we still have the lock
         let text = generate_attendance_report(&week);
         let kb = main_menu_keyboard(&week.sessions);
         (text, kb) 
-    }; // <--- RwLockWriteGuard is dropped HERE
+    }; // RwLockWriteGuard drop
 
-    // 2. Now we can safely await without Send-bound issues
     if let Some(teloxide::types::MaybeInaccessibleMessage::Regular(msg)) = q.message {
         bot.edit_message_text(msg.chat.id, msg.id, report_text)
             .parse_mode(teloxide::types::ParseMode::Html)
