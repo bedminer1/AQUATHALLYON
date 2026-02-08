@@ -30,7 +30,7 @@ async fn main() {
     let bot = Bot::from_env();
 
     let handler = dptree::entry()
-        .branch(Update::filter_message().endpoint(send_menu))
+        .branch(Update::filter_message().filter_command::<Command>().endpoint(handle_commands))
         .branch(Update::filter_callback_query().endpoint(receive_btn_press));
 
     Dispatcher::builder(bot, handler)

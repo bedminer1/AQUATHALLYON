@@ -46,9 +46,9 @@ impl SharedState {
     }
 
     // Helper to make your handlers cleaner
-    pub fn read(&self) -> std::sync::RwLockReadGuard<'_, WeeklyAttendance> {
-        self.0.read().expect("Lock poisoned")
-    }
+    // pub fn read(&self) -> std::sync::RwLockReadGuard<'_, WeeklyAttendance> {
+    //     self.0.read().expect("Lock poisoned")
+    // }
 
     pub fn write(&self) -> std::sync::RwLockWriteGuard<'_, WeeklyAttendance> {
         self.0.write().expect("Lock poisoned")

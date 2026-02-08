@@ -1,35 +1,69 @@
 use teloxide::{
     prelude::*, 
     types::{ InlineKeyboardMarkup },
+    utils::command::BotCommands,
 };
+use chrono::{Duration, Local, Datelike};
 
 use crate::types::*;
 
-pub async fn send_menu(
+#[derive(BotCommands, Clone)]
+#[command(rename_rule = "lowercase", description = "Aquathallyon Commands:")]
+pub enum Command {
+    #[command(description = "More information about commands")]
+    Help,
+    #[command(description = "start the attendance tracking for the new week.")]
+    NewWeek,
+}
+
+pub async fn handle_commands(
     bot: Bot,
     state: SharedState,
-    msg: Message
+    msg: Message,
+    cmd: Command,
 ) -> ResponseResult<()> {
-    let (text, keyboard) = {
-        let weekly_attendance = state.read();
-        let t = generate_attendance_report(&weekly_attendance);
-        let k = main_menu_keyboard(&weekly_attendance.sessions);
-        (t, k) // Return the data we need, dropping the guard here
-    };
-    
-    bot.send_message(msg.chat.id, text)
-        .parse_mode(teloxide::types::ParseMode::Html) // Use V2 for better formatting
-        .reply_markup(keyboard)
-        .await?;
+    match cmd {
+        Command::Help => {
+            bot.send_message(msg.chat.id, Command::descriptions().to_string()).await?;
+        }
+        Command::NewWeek => {
+            let (report, kb) = {
+                let mut weekly_attendance = state.write();
+
+                let now = Local::now().date_naive();
+                let days_to_next_monday = (7 - now.weekday().num_days_from_monday()) % 7;
+                let next_monday = now + Duration::days(days_to_next_monday as i64);
+                let next_sunday = next_monday + Duration::days(6);
+
+                weekly_attendance.start_date = next_monday.format("%d-%m-%Y").to_string();
+                weekly_attendance.end_date = next_sunday.format("%d-%m-%Y").to_string();
+
+                // TODO: save state to DB before wiping state
+
+                for session in &mut weekly_attendance.sessions {
+                    session.attendees.clear();
+                }
+
+                (generate_attendance_report(&weekly_attendance), main_menu_keyboard(&weekly_attendance.sessions))
+            };
+
+            bot.send_message(msg.chat.id, format!("{}", report))
+                .parse_mode(teloxide::types::ParseMode::Html)
+                .reply_markup(kb)
+                .await?;
+        }
+    }
 
     Ok(())
 }
+
 pub async fn receive_btn_press(
     bot: Bot,
     state: SharedState, 
     q: CallbackQuery,
 ) -> ResponseResult<()> {
-    let user_name = q.from.username.clone().unwrap_or_else(|| "unknown".into());
+    let _user_name = q.from.username.clone().unwrap_or_else(|| "unknown".into());
+    let display_name = q.from.full_name();
     let user_id = q.from.id.0;
 
     let (report_text, keyboard) = {
@@ -43,7 +77,7 @@ pub async fn receive_btn_press(
             if let Some(pos) = session.attendees.iter().position(|u| u.telegram_id == user_id) {
                 session.attendees.remove(pos);
             } else {
-                session.attendees.push(User { telegram_id: user_id, alias: user_name });
+                session.attendees.push(User { telegram_id: user_id, alias: display_name });
             }
         }
         
@@ -80,10 +114,10 @@ fn generate_attendance_report(state: &WeeklyAttendance) -> String {
             "<i>No one yet</i>".to_string()
         } else {
             let list = s.attendees.iter()
-                .map(|u| format!("@{}", u.alias))
+                .map(|u| format!("{}", u.alias))
                 .collect::<Vec<_>>()
-                .join(", ");
-            format!("└ {}", list)
+                .join("\n");
+            format!("{}", list)
         };
         
         format!("<b>{} {}</b> (@ {})\n{}\n", s.day, s.activity, s.location, attendees)
