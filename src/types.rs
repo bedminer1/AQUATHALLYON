@@ -1,6 +1,32 @@
 use serde::{ Serialize, Deserialize };
 use teloxide::types::{InlineKeyboardButton};
 use std::sync::{Arc, RwLock};
+use libsql::Builder;
+
+#[derive(Clone)]
+pub struct AppState {
+    pub sync_state: SharedState,
+    pub db: libsql::Connection,
+}
+
+impl AppState {
+    pub async fn new(initial: WeeklyAttendance) -> Self {
+        let url = std::env::var("DATABASE_URL").expect("URL missing");
+        let token = std::env::var("DATABASE_AUTH_TOKEN").expect("Token missing");
+
+        let db = Builder::new_remote(url, token)
+            .build()
+            .await
+            .expect("Failed to connect to Turso");
+
+        let conn = db.connect().expect("Failed to connect");
+        
+        AppState {
+            sync_state: SharedState::new(initial),
+            db: conn,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
@@ -46,9 +72,9 @@ impl SharedState {
     }
 
     // Helper to make your handlers cleaner
-    // pub fn read(&self) -> std::sync::RwLockReadGuard<'_, WeeklyAttendance> {
-    //     self.0.read().expect("Lock poisoned")
-    // }
+    pub fn read(&self) -> std::sync::RwLockReadGuard<'_, WeeklyAttendance> {
+        self.0.read().expect("Lock poisoned")
+    }
 
     pub fn write(&self) -> std::sync::RwLockWriteGuard<'_, WeeklyAttendance> {
         self.0.write().expect("Lock poisoned")

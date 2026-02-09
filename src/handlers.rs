@@ -14,11 +14,13 @@ pub enum Command {
     Help,
     #[command(description = "start the attendance tracking for the new week.")]
     NewWeek,
+    #[command(description = "save current state to db")]
+    Save,
 }
 
 pub async fn handle_commands(
     bot: Bot,
-    state: SharedState,
+    state: AppState,
     msg: Message,
     cmd: Command,
 ) -> ResponseResult<()> {
@@ -28,7 +30,7 @@ pub async fn handle_commands(
         }
         Command::NewWeek => {
             let (report, kb) = {
-                let mut weekly_attendance = state.write();
+                let mut weekly_attendance = state.sync_state.write();
 
                 let now = Local::now().date_naive();
                 let days_to_next_monday = (7 - now.weekday().num_days_from_monday()) % 7;
@@ -52,6 +54,24 @@ pub async fn handle_commands(
                 .reply_markup(kb)
                 .await?;
         }
+        Command::Save => {
+            let week_snapshot = state.sync_state.read().clone();
+
+            // 2. Clear current attendance in DB
+            state.db.execute("DELETE FROM attendance", ()).await.unwrap();
+
+            // 3. Batch insert the new state
+            for session in week_snapshot.sessions {
+                for user in session.attendees {
+                    state.db.execute(
+                        "INSERT INTO attendance (session_id, user_id, user_alias) VALUES (?, ?, ?)",
+                        libsql::params![session.id, user.telegram_id, user.alias],
+                    ).await.unwrap();
+                }
+            }
+
+            bot.send_message(msg.chat.id, "✅ Attendance successfully synced to Turso!").await?;
+        }
     }
 
     Ok(())
@@ -59,7 +79,7 @@ pub async fn handle_commands(
 
 pub async fn receive_btn_press(
     bot: Bot,
-    state: SharedState, 
+    state: AppState, 
     q: CallbackQuery,
 ) -> ResponseResult<()> {
     let _user_name = q.from.username.clone().unwrap_or_else(|| "unknown".into());
@@ -67,7 +87,7 @@ pub async fn receive_btn_press(
     let user_id = q.from.id.0;
 
     let (report_text, keyboard) = {
-        let mut week = state.write();
+        let mut week = state.sync_state.write();
 
         let session_id = q.data.as_deref()
             .and_then(|data| data.strip_prefix("checkin_"))

@@ -26,7 +26,7 @@ async fn main() {
         ],
     };
 
-    let state = SharedState::new(initial_state);
+    let app_state = AppState::new(initial_state).await;
     let bot = Bot::from_env();
 
     let handler = dptree::entry()
@@ -34,7 +34,7 @@ async fn main() {
         .branch(Update::filter_callback_query().endpoint(receive_btn_press));
 
     Dispatcher::builder(bot, handler)
-        .dependencies(dptree::deps![state])
+        .dependencies(dptree::deps![app_state])
         .enable_ctrlc_handler()
         .build()
         .dispatch()
