@@ -30,7 +30,7 @@ pub enum Command {
     #[command(description = "Remove session: /delete (week), (order)")]
     Delete(String),
 
-    #[command(description = "Edit session: /edit (week), (order), (day), (act), (loc), (time)")]
+    #[command(description = "Edit session: /edit (week), (order), (field=value, ...)")]
     Edit(String),
 
     #[command(description = "Sync current week data to database")]
@@ -54,18 +54,20 @@ pub async fn handle_commands(
         Command::Help => {
             let help_text = "<b>🔱 Aquathallyon Bot Help</b>\n\n\
 <b>Member Commands</b>\n\
-/show - View current week's attendance\n\
-/show_next - View next week's attendance\n\
 /history - View your training history\n\
 /log - Record a personal workout\n\n\
 <b>Manage week</b>\n\
+/show - View current week's attendance\n\
+/show_next - View next week's attendance\n\
 /new_week - Roll to next week\n\n\
 <b>Edit activities</b>\n\
 /add - Create a new session\n\
 /edit - Modify a session\n\
 /delete - Remove a session\n\
 /save - Sync current week to database\n\n\
-<i>Tip: Separate arguments with commas. \n The format is (week), (order), (day), (activity), (location), (time)</i>";
+<i>Tip: Separate fields with commas.\n\
+/edit (week), (order), field=value, ... (fields: day, act, loc, time)\n\
+/add (week), (order), (day), (activity), (location), (time)</i>";
             bot.send_message(msg.chat.id, help_text)
                 .parse_mode(teloxide::types::ParseMode::Html)
                 .await?;
@@ -149,8 +151,8 @@ pub async fn handle_commands(
         Command::Edit(raw_args) => {
             let parts: Vec<&str> = raw_args.split(',').map(|s| s.trim()).collect();
 
-            if parts.len() < 6 {
-                bot.send_message(msg.chat.id, "❌ Format: /edit (current/next), order, day, activity, location, time").await?;
+            if parts.len() < 3 {
+                bot.send_message(msg.chat.id, "❌ Format: /edit (current/next), order, field=value, ...\nFields: day, activity, location, time").await?;
                 return Ok(());
             }
 
@@ -160,10 +162,6 @@ pub async fn handle_commands(
                 return Ok(());
             }
             let order: usize = parts[1].parse().unwrap_or(0);
-            let day = parts[2].to_string();
-            let activity = parts[3].to_string();
-            let location = parts[4].to_string();
-            let time = parts[5].to_string();
 
             let (report, kb, success) = {
                 let mut week = state.sync_state.write();
@@ -175,10 +173,18 @@ pub async fn handle_commands(
                     let week_data = if week_choice == "current" { &mut week.current } else { &mut week.next };
                     if index < week_data.sessions.len() {
                         let s = &mut week_data.sessions[index];
-                        s.day = day;
-                        s.activity = activity;
-                        s.location = location;
-                        s.time = time;
+
+                        for part in &parts[2..] {
+                            if let Some((k, v)) = part.split_once('=') {
+                                match k.trim().to_lowercase().as_str() {
+                                    "day" => s.day = v.trim().to_string(),
+                                    "activity" | "act" => s.activity = v.trim().to_string(),
+                                    "location" | "loc" => s.location = v.trim().to_string(),
+                                    "time" => s.time = v.trim().to_string(),
+                                    _ => {}
+                                }
+                            }
+                        }
                         success = true;
                     }
                 }
