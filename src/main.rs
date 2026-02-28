@@ -15,20 +15,36 @@ async fn main() {
     log::info!("Starting aquathallyon bot...");
 
     let now = Local::now().date_naive();
-    let days_to_next_monday = (7 - now.weekday().num_days_from_monday()) % 7;
-    let next_monday = now + Duration::days(days_to_next_monday as i64);
+
+    // Calculate Current Week (Monday to Sunday)
+    let days_from_monday = now.weekday().num_days_from_monday();
+    let curr_monday = now - Duration::days(days_from_monday as i64);
+    let curr_sunday = curr_monday + Duration::days(6);
+
+    // Calculate Next Week (Monday to Sunday)
+    let next_monday = curr_monday + Duration::days(7);
     let next_sunday = next_monday + Duration::days(6);
+
+    let template_sessions = vec![
+        TrainingSession { id: 1, activity: "Swim".into(), location: "USC Pool".into(), day: "Monday".into(), attendees: vec![], time: "5:00 PM".into() },
+        TrainingSession { id: 2, activity: "Run".into(), location: "NUS Track".into(), day: "Tuesday".into(), attendees: vec![], time: "6:00 PM".into() },
+        TrainingSession { id: 3, activity: "Swim".into(), location: "USC Pool".into(), day: "Wednesday".into(), attendees: vec![], time: "5:00 PM".into() },
+        TrainingSession { id: 4, activity: "Run".into(), location: "NUS Track".into(), day: "Thursday".into(), attendees: vec![], time: "6:00 PM".into() },
+        TrainingSession { id: 5, activity: "Swim".into(), location: "USC Pool".into(), day: "Friday".into(), attendees: vec![], time: "5:00 PM".into() },
+        TrainingSession { id: 6, activity: "Bricks".into(), location: "Palawan Beach".into(), day: "Saturday".into(), attendees: vec![], time: "8:30 AM".into() },
+    ];
+
     let initial_state = WeeklyAttendance {
-        start_date: next_monday.format("%d/%m").to_string(),
-        end_date: next_sunday.format("%d/%m").to_string(),
-        sessions: vec![
-            TrainingSession { id: 1, activity: "Swim".into(), location: "USC Pool".into(), day: "Monday".into(), attendees: vec![], time: "5:00 PM".into() },
-            TrainingSession { id: 2, activity: "Run".into(), location: "NUS Track".into(), day: "Tuesday".into(), attendees: vec![], time: "6:00 PM".into() },
-            TrainingSession { id: 3, activity: "Swim".into(), location: "USC Pool".into(), day: "Wednesday".into(), attendees: vec![], time: "5:00 PM".into() },
-            TrainingSession { id: 4, activity: "Run".into(), location: "NUS Track".into(), day: "Thursday".into(), attendees: vec![], time: "6:00 PM".into() },
-            TrainingSession { id: 5, activity: "Swim".into(), location: "USC Pool".into(), day: "Friday".into(), attendees: vec![], time: "5:00 PM".into() },
-            TrainingSession { id: 6, activity: "Bricks".into(), location: "Palawan Beach".into(), day: "Saturday".into(), attendees: vec![], time: "8:30 AM".into() },
-        ],
+        current: WeekData {
+            start_date: curr_monday.format("%d/%m").to_string(),
+            end_date: curr_sunday.format("%d/%m").to_string(),
+            sessions: template_sessions.clone(),
+        },
+        next: WeekData {
+            start_date: next_monday.format("%d/%m").to_string(),
+            end_date: next_sunday.format("%d/%m").to_string(),
+            sessions: template_sessions,
+        },
         user_registry: std::collections::HashMap::new(),
     };
 

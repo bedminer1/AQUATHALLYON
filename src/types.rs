@@ -54,24 +54,31 @@ pub struct TrainingSession {
 }
 
 impl TrainingSession {
-    pub fn make_button(&self) -> InlineKeyboardButton {
+    pub fn make_button(&self, week_type: &str) -> InlineKeyboardButton {
         let label = format!("{}: {} @ {}", self.day, self.activity, self.location);
-        InlineKeyboardButton::callback(label, format!("checkin_{}", self.id))
+        // week_type is 'c' (current) or 'n' (next)
+        InlineKeyboardButton::callback(label, format!("checkin_{}_{}", week_type, self.id))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WeekData {
+    pub start_date: String,
+    pub end_date: String,
+    pub sessions: Vec<TrainingSession>,
+}
+
+impl WeekData {
+    pub fn get_session_mut(&mut self, session_id: u8) -> Option<&mut TrainingSession> {
+        self.sessions.iter_mut().find(|s| s.id == session_id)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WeeklyAttendance {
-    pub start_date: String, // e.g., "2026-02-02"
-    pub end_date: String,   // e.g., "2026-02-08"
-    pub sessions: Vec<TrainingSession>,
+    pub current: WeekData,
+    pub next: WeekData,
     pub user_registry: HashMap<u64, UserProfile>,
-}
-
-impl WeeklyAttendance {
-    pub fn get_session_mut(&mut self, session_id: u8) -> Option<&mut TrainingSession> {
-        self.sessions.iter_mut().find(|s| s.id == session_id)
-    }
 }
 
 #[derive(Clone)]
