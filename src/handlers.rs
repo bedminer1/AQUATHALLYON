@@ -20,17 +20,17 @@ pub enum Command {
 
     #[command(description = "Show next week's attendance")]
     ShowNext,
-    
+
     #[command(description = "Roll to next week (Current = Next, Next = Reset)")]
     NewWeek,
 
-    #[command(description = "Add session: /add (order), (day), (act), (loc), (time)")]
+    #[command(description = "Add session: /add (week), (order), (day), (act), (loc), (time)")]
     Add(String),
 
-    #[command(description = "Remove session: /delete (order)")]
-    Delete(u8),
+    #[command(description = "Remove session: /delete (week), (order)")]
+    Delete(String),
 
-    #[command(description = "Edit session: /edit (order), (day), (act), (loc), (time)")]
+    #[command(description = "Edit session: /edit (week), (order), (day), (act), (loc), (time)")]
     Edit(String),
 
     #[command(description = "Sync current week data to database")]
@@ -54,18 +54,18 @@ pub async fn handle_commands(
         Command::Help => {
             let help_text = "<b>🔱 Aquathallyon Bot Help</b>\n\n\
 <b>Member Commands</b>\n\
+/show - View current week's attendance\n\
+/show_next - View next week's attendance\n\
 /history - View your training history\n\
 /log - Record a personal workout\n\n\
 <b>Manage week</b>\n\
-/show - View current week's attendance\n\
-/show_next - View next week's attendance\n\
 /new_week - Roll to next week\n\n\
 <b>Edit activities</b>\n\
-/add - Create a new session (both weeks)\n\
-/edit - Modify a session (both weeks)\n\
-/delete - Remove a session (both weeks)\n\
+/add - Create a new session\n\
+/edit - Modify a session\n\
+/delete - Remove a session\n\
 /save - Sync current week to database\n\n\
-<i>Tip: Separate arguments with commas. \n The format is (order), (day), (activity), (location), (time)</i>";
+<i>Tip: Separate arguments with commas. \n The format is (week), (order), (day), (activity), (location), (time)</i>";
             bot.send_message(msg.chat.id, help_text)
                 .parse_mode(teloxide::types::ParseMode::Html)
                 .await?;
@@ -149,46 +149,50 @@ pub async fn handle_commands(
         Command::Edit(raw_args) => {
             let parts: Vec<&str> = raw_args.split(',').map(|s| s.trim()).collect();
 
-            if parts.len() < 5 {
-                bot.send_message(msg.chat.id, "❌ Format: /edit order, day, activity, location, time").await?;
+            if parts.len() < 6 {
+                bot.send_message(msg.chat.id, "❌ Format: /edit (current/next), order, day, activity, location, time").await?;
                 return Ok(());
             }
 
-            let order: usize = parts[0].parse().unwrap_or(0);
-            let day = parts[1].to_string();
-            let activity = parts[2].to_string();
-            let location = parts[3].to_string();
-            let time = parts[4].to_string();
+            let week_choice = parts[0].to_lowercase();
+            if week_choice != "current" && week_choice != "next" {
+                bot.send_message(msg.chat.id, "❌ Week must be 'current' or 'next'").await?;
+                return Ok(());
+            }
+            let order: usize = parts[1].parse().unwrap_or(0);
+            let day = parts[2].to_string();
+            let activity = parts[3].to_string();
+            let location = parts[4].to_string();
+            let time = parts[5].to_string();
 
             let (report, kb, success) = {
                 let mut week = state.sync_state.write();
                 let index = order.saturating_sub(1);
+                let week_type = if week_choice == "current" { "c" } else { "n" };
 
-                if index < week.current.sessions.len() {
-                    // Update current
-                    let s_curr = &mut week.current.sessions[index];
-                    s_curr.day = day.clone();
-                    s_curr.activity = activity.clone();
-                    s_curr.location = location.clone();
-                    s_curr.time = time.clone();
-
-                    // Update next (keep structural sync)
-                    if index < week.next.sessions.len() {
-                        let s_next = &mut week.next.sessions[index];
-                        s_next.day = day;
-                        s_next.activity = activity;
-                        s_next.location = location;
-                        s_next.time = time;
+                let mut success = false;
+                {
+                    let week_data = if week_choice == "current" { &mut week.current } else { &mut week.next };
+                    if index < week_data.sessions.len() {
+                        let s = &mut week_data.sessions[index];
+                        s.day = day;
+                        s.activity = activity;
+                        s.location = location;
+                        s.time = time;
+                        success = true;
                     }
+                }
 
-                    (generate_attendance_report(&week.current, &week.user_registry), main_menu_keyboard(&week.current.sessions, "c"), true)
+                if success {
+                    let week_data = if week_choice == "current" { &week.current } else { &week.next };
+                    (generate_attendance_report(week_data, &week.user_registry), main_menu_keyboard(&week_data.sessions, week_type), true)
                 } else {
                     (String::new(), InlineKeyboardMarkup::default(), false)
                 }
             };
 
             if success {
-                bot.send_message(msg.chat.id, format!("📝 <b>Session #{} updated for both weeks.</b>\n\n{}", order, report))
+                bot.send_message(msg.chat.id, format!("📝 <b>Session #{} updated for {} week.</b>\n\n{}", order, week_choice, report))
                     .parse_mode(teloxide::types::ParseMode::Html)
                     .reply_markup(kb)
                     .await?;
@@ -199,19 +203,25 @@ pub async fn handle_commands(
         Command::Add(raw_args) => {
             let parts: Vec<&str> = raw_args.split(',').map(|s| s.trim()).collect();
 
-            if parts.len() < 5 {
-                bot.send_message(msg.chat.id, "❌ Format: /add order, day, activity, location, time").await?;
+            if parts.len() < 6 {
+                bot.send_message(msg.chat.id, "❌ Format: /add (current/next), order, day, activity, location, time").await?;
                 return Ok(());
             }
 
-            let order: usize = parts[0].parse().unwrap_or(1);
-            let day = parts[1].to_string();
-            let activity = parts[2].to_string();
-            let location = parts[3].to_string();
-            let time = parts[4].to_string();
+            let week_choice = parts[0].to_lowercase();
+            if week_choice != "current" && week_choice != "next" {
+                bot.send_message(msg.chat.id, "❌ Week must be 'current' or 'next'").await?;
+                return Ok(());
+            }
+            let order: usize = parts[1].parse().unwrap_or(1);
+            let day = parts[2].to_string();
+            let activity = parts[3].to_string();
+            let location = parts[4].to_string();
+            let time = parts[5].to_string();
 
             let (report, kb) = {
                 let mut week = state.sync_state.write();
+                let week_type = if week_choice == "current" { "c" } else { "n" };
                 let next_id = week.current.sessions.iter().map(|s| s.id).max()
                     .max(week.next.sessions.iter().map(|s| s.id).max())
                     .unwrap_or(0) + 1;
@@ -225,46 +235,62 @@ pub async fn handle_commands(
                     time,
                 };
 
-                // Add to current
-                if order > 0 && order <= week.current.sessions.len() {
-                    week.current.sessions.insert(order - 1, new_session.clone());
-                } else {
-                    week.current.sessions.push(new_session.clone());
+                {
+                    let week_data = if week_choice == "current" { &mut week.current } else { &mut week.next };
+                    if order > 0 && order <= week_data.sessions.len() {
+                        week_data.sessions.insert(order - 1, new_session);
+                    } else {
+                        week_data.sessions.push(new_session);
+                    }
                 }
 
-                // Add to next
-                if order > 0 && order <= week.next.sessions.len() {
-                    week.next.sessions.insert(order - 1, new_session);
-                } else {
-                    week.next.sessions.push(new_session);
-                }
-
-                (generate_attendance_report(&week.current, &week.user_registry), main_menu_keyboard(&week.current.sessions, "c"))
+                let week_data = if week_choice == "current" { &week.current } else { &week.next };
+                (generate_attendance_report(week_data, &week.user_registry), main_menu_keyboard(&week_data.sessions, week_type))
             };
 
-            bot.send_message(msg.chat.id, format!("➕ <b>New session added to both weeks.</b>\n\n{}", report))
+            bot.send_message(msg.chat.id, format!("➕ <b>New session added to {} week.</b>\n\n{}", week_choice, report))
                 .parse_mode(teloxide::types::ParseMode::Html)
                 .reply_markup(kb)
                 .await?;
         }
-        Command::Delete(order) => {
+        Command::Delete(raw_args) => {
+            let parts: Vec<&str> = raw_args.split(',').map(|s| s.trim()).collect();
+            if parts.len() < 2 {
+                bot.send_message(msg.chat.id, "❌ Format: /delete (current/next), order").await?;
+                return Ok(());
+            }
+
+            let week_choice = parts[0].to_lowercase();
+            if week_choice != "current" && week_choice != "next" {
+                bot.send_message(msg.chat.id, "❌ Week must be 'current' or 'next'").await?;
+                return Ok(());
+            }
+            let order: usize = parts[1].parse().unwrap_or(0);
+
             let (report, kb, success) = {
                 let mut week = state.sync_state.write();
-                let index = (order as usize).saturating_sub(1);
+                let index = order.saturating_sub(1);
+                let week_type = if week_choice == "current" { "c" } else { "n" };
 
-                if index < week.current.sessions.len() {
-                    week.current.sessions.remove(index);
-                    if index < week.next.sessions.len() {
-                        week.next.sessions.remove(index);
+                let mut success = false;
+                {
+                    let week_data = if week_choice == "current" { &mut week.current } else { &mut week.next };
+                    if index < week_data.sessions.len() {
+                        week_data.sessions.remove(index);
+                        success = true;
                     }
-                    (generate_attendance_report(&week.current, &week.user_registry), main_menu_keyboard(&week.current.sessions, "c"), true)
+                }
+
+                if success {
+                    let week_data = if week_choice == "current" { &week.current } else { &week.next };
+                    (generate_attendance_report(week_data, &week.user_registry), main_menu_keyboard(&week_data.sessions, week_type), true)
                 } else {
                     (String::new(), InlineKeyboardMarkup::default(), false)
                 }
             };
 
             if success {
-                bot.send_message(msg.chat.id, format!("🗑️ <b>Session #{} deleted from both weeks.</b>\n\n{}", order, report))
+                bot.send_message(msg.chat.id, format!("🗑️ <b>Session #{} deleted from {} week.</b>\n\n{}", order, week_choice, report))
                     .parse_mode(teloxide::types::ParseMode::Html)
                     .reply_markup(kb)
                     .await?;
