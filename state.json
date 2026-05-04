@@ -1,0 +1,94 @@
+{
+  "current": {
+    "start_date": "11/05",
+    "end_date": "18/05",
+    "sessions": [
+      {
+        "id": 1,
+        "text": "MON Swim 5:00 PM @ USC Pool",
+        "attendees": [
+          {
+            "user_id": 1416878311,
+            "cancelled": false
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "text": "TUE Run 6:00 PM @ NUS Track",
+        "attendees": [
+          {
+            "user_id": 1416878311,
+            "cancelled": false
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "text": "WED Swim 5:00 PM @ USC Pool",
+        "attendees": [
+          {
+            "user_id": 1416878311,
+            "cancelled": true
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "text": "THU Run 6:00 PM @ NUS Track",
+        "attendees": []
+      },
+      {
+        "id": 5,
+        "text": "FRI Swim 5:00 PM @ USC Pool",
+        "attendees": []
+      },
+      {
+        "id": 6,
+        "text": "SAT Bricks 8:30 AM @ Palawan",
+        "attendees": []
+      }
+    ]
+  },
+  "next": {
+    "start_date": "12/05",
+    "end_date": "19/05",
+    "sessions": [
+      {
+        "id": 1,
+        "text": "MON Swim 5:00 PM @ USC Pool",
+        "attendees": []
+      },
+      {
+        "id": 2,
+        "text": "TUE Run 6:00 PM @ NUS Track",
+        "attendees": []
+      },
+      {
+        "id": 3,
+        "text": "WED Swim 5:00 PM @ USC Pool",
+        "attendees": []
+      },
+      {
+        "id": 4,
+        "text": "THU Run 6:00 PM @ NUS Track",
+        "attendees": []
+      },
+      {
+        "id": 5,
+        "text": "FRI Swim 5:00 PM @ USC Pool",
+        "attendees": []
+      },
+      {
+        "id": 6,
+        "text": "SAT Bricks 8:30 AM @ Palawan",
+        "attendees": []
+      }
+    ]
+  },
+  "user_registry": {
+    "1416878311": {
+      "alias": "Alex"
+    }
+  }
+}
